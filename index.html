@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>俄罗斯方块 - 单文件版</title>
+  <style>
+    :root {
+      --bg: #0e1224;
+      --panel: #171d35;
+      --panel-2: #1f2746;
+      --text: #e9eeff;
+      --muted: #a8b4df;
+      --accent: #58d7ff;
+      --danger: #ff6b8a;
+      --ok: #7ef29a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 600px at -20% -10%, #22316e55, transparent),
+        radial-gradient(900px 400px at 120% 10%, #2f8bb955, transparent),
+        linear-gradient(135deg, #0a0f1f, #101630 40%, #0a1022);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+
+    .wrap {
+      width: min(1080px, 100%);
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .game-panel, .info-panel {
+      background: linear-gradient(180deg, #1a2243cc, #111a36cc);
+      border: 1px solid #3f4e8c66;
+      border-radius: 16px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 12px 40px #00000044;
+    }
+
+    .game-panel { padding: 18px; }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 12px;
+    }
+
+    .title {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #dce8ff;
+      text-shadow: 0 0 20px #58d7ff55;
+    }
+
+    .stats {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .chip {
+      background: var(--panel-2);
+      border: 1px solid #40528f88;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .chip b { color: var(--text); }
+
+    .board-wrap {
+      display: grid;
+      grid-template-columns: auto 110px;
+      gap: 12px;
+      align-items: start;
+    }
+
+    canvas {
+      display: block;
+      border-radius: 8px;
+      border: 1px solid #6e82cb66;
+      background: #0b1128;
+      box-shadow: inset 0 0 30px #00000088;
+    }
+
+    .side {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .box {
+      background: var(--panel);
+      border: 1px solid #3f4e8c66;
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    .box h3 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.3px;
+    }
+
+    .controls {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: #fff;
+      background: linear-gradient(180deg, #2d70ff, #1f52c8);
+      cursor: pointer;
+      transition: transform 0.08s ease, filter 0.2s;
+    }
+
+    button:hover { filter: brightness(1.1); }
+    button:active { transform: translateY(1px); }
+
+    .danger {
+      background: linear-gradient(180deg, #ff5e87, #cf3c62);
+    }
+
+    .info-panel { padding: 16px; }
+
+    .info-panel h2 {
+      margin: 0 0 10px;
+      font-size: 19px;
+      color: #dcedff;
+    }
+
+    .spec-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .spec-list li {
+      background: var(--panel);
+      border: 1px solid #3f4e8c66;
+      border-radius: 10px;
+      padding: 10px;
+      line-height: 1.45;
+      color: #d4ddff;
+    }
+
+    .spec-list span {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 3px;
+    }
+
+    .music-state {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--ok);
+      min-height: 16px;
+    }
+
+    @media (max-width: 920px) {
+      .wrap { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="game-panel">
+      <div class="header">
+        <div class="title">俄罗斯方块</div>
+        <div class="stats">
+          <div class="chip">分数: <b id="score">0</b></div>
+          <div class="chip">等级: <b id="level">1</b></div>
+          <div class="chip">消行: <b id="lines">0</b></div>
+        </div>
+      </div>
+
+      <div class="board-wrap">
+        <canvas id="board" width="300" height="600" aria-label="俄罗斯方块主棋盘"></canvas>
+        <div class="side">
+          <div class="box">
+            <h3>下一个</h3>
+            <canvas id="next" width="90" height="90" aria-label="下一个方块"></canvas>
+          </div>
+          <div class="box">
+            <h3>状态</h3>
+            <div id="status" style="font-size:14px;color:#d8e5ff;">进行中</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        控制：← → 移动，↑ 旋转，↓ 加速，空格 直接落下，P 暂停。
+      </div>
+      <div class="buttons">
+        <button id="restart">重新开始</button>
+        <button id="musicBtn">开启背景音乐</button>
+        <button id="muteBtn" class="danger">静音</button>
+      </div>
+      <div class="music-state" id="musicState">提示：浏览器通常需要先点击页面才能播放音乐。</div>
+    </section>
+
+    <aside class="info-panel">
+      <h2>本机配置</h2>
+      <ul class="spec-list">
+        <li><span>操作系统</span>W11 专业版</li>
+        <li><span>CPU</span>Intel i7-14700KF</li>
+        <li><span>GPU</span>NVIDIA RTX 5060 Ti 16GB</li>
+        <li><span>GPU 架构</span>Blackwell</li>
+        <li><span>CUDA Capability</span>sm_120</li>
+        <li><span>内存</span>48GB</li>
+        <li><span>固态硬盘</span>2TB</li>
+      </ul>
+    </aside>
+  </div>
+
+  <script>
+    const COLS = 10;
+    const ROWS = 20;
+    const BLOCK = 30;
+    const boardCanvas = document.getElementById('board');
+    const nextCanvas = document.getElementById('next');
+    const ctx = boardCanvas.getContext('2d');
+    const nextCtx = nextCanvas.getContext('2d');
+
+    const scoreEl = document.getElementById('score');
+    const levelEl = document.getElementById('level');
+    const linesEl = document.getElementById('lines');
+    const statusEl = document.getElementById('status');
+    const musicStateEl = document.getElementById('musicState');
+
+    const COLORS = {
+      I: '#5fe3ff', O: '#ffe066', T: '#c18bff', S: '#7ef29a', Z: '#ff8ba7', J: '#7ca3ff', L: '#ffb172'
+    };
+
+    const SHAPES = {
+      I: [[1, 1, 1, 1]],
+      O: [[1, 1], [1, 1]],
+      T: [[0, 1, 0], [1, 1, 1]],
+      S: [[0, 1, 1], [1, 1, 0]],
+      Z: [[1, 1, 0], [0, 1, 1]],
+      J: [[1, 0, 0], [1, 1, 1]],
+      L: [[0, 0, 1], [1, 1, 1]],
+    };
+
+    let board = [];
+    let piece = null;
+    let nextType = randomType();
+    let score = 0;
+    let lines = 0;
+    let level = 1;
+    let dropInterval = 700;
+    let dropCounter = 0;
+    let lastTime = 0;
+    let paused = false;
+    let gameOver = false;
+
+    function randomType() {
+      const keys = Object.keys(SHAPES);
+      return keys[(Math.random() * keys.length) | 0];
+    }
+
+    function createBoard() {
+      return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    }
+
+    function cloneMatrix(m) {
+      return m.map(row => row.slice());
+    }
+
+    function spawnPiece() {
+      const type = nextType;
+      nextType = randomType();
+      const matrix = cloneMatrix(SHAPES[type]);
+      piece = {
+        type,
+        matrix,
+        x: ((COLS / 2) | 0) - ((matrix[0].length / 2) | 0),
+        y: 0,
+        color: COLORS[type],
+      };
+      if (collide(piece.x, piece.y, piece.matrix)) {
+        gameOver = true;
+        statusEl.textContent = '游戏结束';
+      }
+      drawNext();
+    }
+
+    function collide(px, py, matrix) {
+      for (let y = 0; y < matrix.length; y++) {
+        for (let x = 0; x < matrix[y].length; x++) {
+          if (!matrix[y][x]) continue;
+          const nx = px + x;
+          const ny = py + y;
+          if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+          if (ny >= 0 && board[ny][nx]) return true;
+        }
+      }
+      return false;
+    }
+
+    function mergePiece() {
+      piece.matrix.forEach((row, y) => {
+        row.forEach((v, x) => {
+          if (v && piece.y + y >= 0) {
+            board[piece.y + y][piece.x + x] = piece.color;
+          }
+        });
+      });
+    }
+
+    function rotate(matrix) {
+      const h = matrix.length;
+      const w = matrix[0].length;
+      const res = Array.from({ length: w }, () => Array(h).fill(0));
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          res[x][h - 1 - y] = matrix[y][x];
+        }
+      }
+      return res;
+    }
+
+    function clearLines() {
+      let cleared = 0;
+      outer: for (let y = ROWS - 1; y >= 0; y--) {
+        for (let x = 0; x < COLS; x++) {
+          if (!board[y][x]) continue outer;
+        }
+        board.splice(y, 1);
+        board.unshift(Array(COLS).fill(0));
+        cleared++;
+        y++;
+      }
+      if (cleared > 0) {
+        const add = [0, 100, 300, 500, 800][cleared] || 1000;
+        score += add * level;
+        lines += cleared;
+        level = 1 + (lines / 10 | 0);
+        dropInterval = Math.max(120, 700 - (level - 1) * 60);
+        updateStats();
+      }
+    }
+
+    function hardDrop() {
+      while (!collide(piece.x, piece.y + 1, piece.matrix)) piece.y++;
+      tickDown();
+    }
+
+    function tickDown() {
+      if (!piece || paused || gameOver) return;
+      if (!collide(piece.x, piece.y + 1, piece.matrix)) {
+        piece.y++;
+      } else {
+        mergePiece();
+        clearLines();
+        spawnPiece();
+      }
+      draw();
+    }
+
+    function drawCell(context, x, y, color, size) {
+      context.fillStyle = color;
+      context.fillRect(x * size, y * size, size, size);
+      context.strokeStyle = '#ffffff22';
+      context.lineWidth = 1;
+      context.strokeRect(x * size + 0.5, y * size + 0.5, size - 1, size - 1);
+      context.fillStyle = '#ffffff22';
+      context.fillRect(x * size + 3, y * size + 3, size - 6, (size - 6) / 3);
+    }
+
+    function drawBoardGrid() {
+      ctx.clearRect(0, 0, boardCanvas.width, boardCanvas.height);
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          ctx.fillStyle = board[y][x] || '#0f1735';
+          ctx.fillRect(x * BLOCK, y * BLOCK, BLOCK, BLOCK);
+          ctx.strokeStyle = '#3e4c8255';
+          ctx.strokeRect(x * BLOCK + 0.5, y * BLOCK + 0.5, BLOCK - 1, BLOCK - 1);
+        }
+      }
+    }
+
+    function drawPiece() {
+      if (!piece) return;
+      piece.matrix.forEach((row, y) => {
+        row.forEach((v, x) => {
+          if (v) drawCell(ctx, piece.x + x, piece.y + y, piece.color, BLOCK);
+        });
+      });
+    }
+
+    function drawNext() {
+      const size = 22;
+      nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+      nextCtx.fillStyle = '#0f1735';
+      nextCtx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
+      const m = SHAPES[nextType];
+      const ox = ((nextCanvas.width / size - m[0].length) / 2) | 0;
+      const oy = ((nextCanvas.height / size - m.length) / 2) | 0;
+      m.forEach((row, y) => row.forEach((v, x) => {
+        if (v) drawCell(nextCtx, ox + x, oy + y, COLORS[nextType], size);
+      }));
+    }
+
+    function draw() {
+      drawBoardGrid();
+      drawPiece();
+    }
+
+    function updateStats() {
+      scoreEl.textContent = String(score);
+      linesEl.textContent = String(lines);
+      levelEl.textContent = String(level);
+    }
+
+    function restart() {
+      board = createBoard();
+      score = 0;
+      lines = 0;
+      level = 1;
+      dropInterval = 700;
+      dropCounter = 0;
+      lastTime = 0;
+      paused = false;
+      gameOver = false;
+      statusEl.textContent = '进行中';
+      nextType = randomType();
+      spawnPiece();
+      updateStats();
+      draw();
+    }
+
+    function togglePause() {
+      if (gameOver) return;
+      paused = !paused;
+      statusEl.textContent = paused ? '暂停中' : '进行中';
+    }
+
+    function update(time = 0) {
+      const delta = time - lastTime;
+      lastTime = time;
+      if (!paused && !gameOver) {
+        dropCounter += delta;
+        if (dropCounter > dropInterval) {
+          tickDown();
+          dropCounter = 0;
+        }
+      }
+      requestAnimationFrame(update);
+    }
+
+    // ---- 轻快背景音乐（WebAudio 程序化旋律） ----
+    let audioCtx = null;
+    let musicTimer = null;
+    let isMuted = false;
+
+    const melody = [
+      523.25, 659.25, 783.99, 659.25,
+      698.46, 880.00, 987.77, 880.00,
+      783.99, 659.25, 587.33, 659.25,
+      523.25, 587.33, 659.25, 493.88
+    ];
+
+    function ensureAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playTone(freq, duration = 0.18, when = 0) {
+      if (!audioCtx || isMuted) return;
+      const t0 = audioCtx.currentTime + when;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, t0);
+
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.07, t0 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t0);
+      osc.stop(t0 + duration + 0.02);
+    }
+
+    function startMusic() {
+      ensureAudio();
+      if (musicTimer) return;
+      let i = 0;
+      musicStateEl.textContent = '背景音乐播放中 ♫';
+      musicTimer = setInterval(() => {
+        if (!isMuted) playTone(melody[i % melody.length], 0.16);
+        i++;
+      }, 190);
+    }
+
+    function muteMusic() {
+      isMuted = !isMuted;
+      document.getElementById('muteBtn').textContent = isMuted ? '取消静音' : '静音';
+      musicStateEl.textContent = isMuted ? '已静音（游戏继续）' : '背景音乐播放中 ♫';
+    }
+
+    // 交互
+    document.addEventListener('keydown', e => {
+      if (!audioCtx) startMusic();
+      if (gameOver) return;
+
+      if (e.key === 'p' || e.key === 'P') {
+        togglePause();
+        return;
+      }
+      if (paused) return;
+
+      if (e.key === 'ArrowLeft') {
+        if (!collide(piece.x - 1, piece.y, piece.matrix)) piece.x--;
+      } else if (e.key === 'ArrowRight') {
+        if (!collide(piece.x + 1, piece.y, piece.matrix)) piece.x++;
+      } else if (e.key === 'ArrowDown') {
+        tickDown();
+      } else if (e.key === 'ArrowUp') {
+        const r = rotate(piece.matrix);
+        if (!collide(piece.x, piece.y, r)) piece.matrix = r;
+      } else if (e.code === 'Space') {
+        hardDrop();
+      }
+      draw();
+    });
+
+    document.getElementById('restart').addEventListener('click', restart);
+    document.getElementById('musicBtn').addEventListener('click', startMusic);
+    document.getElementById('muteBtn').addEventListener('click', muteMusic);
+
+    restart();
+    requestAnimationFrame(update);
+  </script>
+</body>
+</html>
